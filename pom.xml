@@ -1,0 +1,77 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.dataconservancy.pass</groupId>
+  <artifactId>data-model-migration</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>Data Model Migration</name>
+  <dependencies>
+  	<dependency>
+  		<groupId>org.dataconservancy.pass</groupId>
+  		<artifactId>pass-client-api</artifactId>
+  		<version>0.4.1-SNAPSHOT</version>
+  	</dependency>
+  	
+  	<dependency>
+  		<groupId>org.dataconservancy.pass</groupId>
+  		<artifactId>pass-model</artifactId>
+  		<version>0.4.1-SNAPSHOT</version>
+  	</dependency>
+  	
+  	<dependency>
+  		<groupId>org.dataconservancy.pass</groupId>
+  		<artifactId>pass-data-client</artifactId>
+  		<version>0.4.1-SNAPSHOT</version>
+  	</dependency>
+  	
+  	<dependency>
+  		<groupId>org.dataconservancy.pass</groupId>
+  		<artifactId>pass-status-service</artifactId>
+  		<version>0.4.1-SNAPSHOT</version>
+  	</dependency>
+  	
+  	<dependency>
+  		<groupId>org.dataconservancy.pass</groupId>
+  		<artifactId>pass-client-shaded-v2_3</artifactId>
+  		<version>0.4.1-SNAPSHOT</version>
+  	</dependency>
+  	
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.2.3</version>
+    </dependency>
+  </dependencies>
+  
+  <build>    
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.6.1</version>
+          <configuration>
+            <source>1.8</source>
+            <target>1.8</target>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+    
+  </build>
+  
+  <repositories>
+      
+    <repository>
+      <id>dc.public.snapshots</id>
+      <name>Data Conservancy Public Maven Repository (snapshots)</name>
+      <layout>default</layout>
+      <url>http://maven.dataconservancy.org/public/snapshots/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+    
+  </repositories>
+</project>
