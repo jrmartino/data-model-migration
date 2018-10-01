@@ -90,6 +90,7 @@ public class DataMigration {
             //include this block if you want to dump a copy of each deleted or edited record into a local folder.
             //for an example of how this is used, see delete consumer below
             /*
+            http = getAuthClient();
             editedDir.mkdirs();
             deletedDir.mkdirs();
             System.out.println("Dumping deleted resources in " + deletedDir.getAbsolutePath());
