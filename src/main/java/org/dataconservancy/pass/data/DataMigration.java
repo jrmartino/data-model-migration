@@ -4,6 +4,9 @@ import java.io.FileOutputStream;
 import java.net.URI;
 
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import org.apache.http.auth.AuthScope;
@@ -98,12 +101,6 @@ public class DataMigration {
             */
             
             migrateSubmissionModel();
-            LOG.info("********************************************************");
-            LOG.info("Submissions successfully updated: {}", successfulSubmissions);
-            LOG.info("Submissions with failed update: {}", unsuccessfulSubmissions);
-            LOG.info("Submission Events created: {}", createdSubmissionEvents);
-            LOG.info("********************************************************");
-            
             migrateRepository();
                         
         } catch (Exception ex)  {
@@ -111,9 +108,15 @@ public class DataMigration {
         }
     }    
     
-    private static int migrateSubmissionModel() {
-        return client.processAllEntities(uri -> migrateSubmission(uri), Submission.class);
+    private static void migrateSubmissionModel() {
+        int recordsProcessed = client.processAllEntities(uri -> migrateSubmission(uri), Submission.class);
         
+        LOG.info("********************************************************");
+        LOG.info("Submission crawled: {}", recordsProcessed);
+        LOG.info("Submissions successfully updated: {}", successfulSubmissions);
+        LOG.info("Submissions with failed update: {}", unsuccessfulSubmissions);
+        LOG.info("Submission Events created: {}", createdSubmissionEvents);
+        LOG.info("********************************************************");
     }
 
     private static void migrateSubmission(URI uri) {
@@ -136,15 +139,22 @@ public class DataMigration {
                 successfulSubmissions = successfulSubmissions+1;
                 if (newSubmission.getSource().equals(Source.PASS)
                         && newSubmission.getSubmitted()) {
-                    SubmissionEvent event = new SubmissionEvent();
-                    event.setSubmission(uri);
-                    event.setPerformedBy(submitter);
-                    event.setEventType(EventType.SUBMITTED);
-                    event.setPerformerRole(PerformerRole.SUBMITTER);
-                    event.setPerformedDate(newSubmission.getSubmittedDate());
-                    URI eventUri = client.createResource(event);
-                    LOG.info("SubmissionEvent:{} was created for Submission {}", eventUri, uri);
-                    createdSubmissionEvents = createdSubmissionEvents+1;
+                    // shouldn't really need this check, but put in as a small extra precaution
+                    Map<String, Object> submEventSearch = new HashMap<String, Object>();
+                    submEventSearch.put("eventType", "submitted");
+                    submEventSearch.put("submission", uri);
+                    Set<URI> events = client.findAllByAttributes(SubmissionEvent.class, submEventSearch);
+                    if (events.size()==0) {
+                        SubmissionEvent event = new SubmissionEvent();
+                        event.setSubmission(uri);
+                        event.setPerformedBy(submitter);
+                        event.setEventType(EventType.SUBMITTED);
+                        event.setPerformerRole(PerformerRole.SUBMITTER);
+                        event.setPerformedDate(newSubmission.getSubmittedDate());
+                        URI eventUri = client.createResource(event);
+                        LOG.info("SubmissionEvent:{} was created for Submission {}", eventUri, uri);
+                        createdSubmissionEvents = createdSubmissionEvents+1;
+                    }
                 }
             }            
         } catch (Exception ex) {

@@ -13,5 +13,6 @@
      <appender-ref ref="CONSOLE"/>
    </root>
    <logger name="org.apache.http" level="WARN"/>
-   <logger name="org.apache.http" level="WARN"/>
+   <logger name="org.fcrepo.client" level="WARN"/>
+   <logger name="org.dataconservancy.pass.client" level="WARN"/>
  </configuration>
