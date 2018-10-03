@@ -3,8 +3,10 @@ import java.io.FileOutputStream;
 
 import java.net.URI;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -22,12 +24,16 @@ import org.dataconservancy.pass.client.PassClient;
 import org.dataconservancy.pass.client.PassClientFactory;
 import org.dataconservancy.pass.client.SubmissionStatusService;
 import org.dataconservancy.pass.client.fedora.FedoraConfig;
+import org.dataconservancy.pass.model.Funder;
+import org.dataconservancy.pass.model.Grant;
 import org.dataconservancy.pass.model.Repository;
 import org.dataconservancy.pass.model.Submission;
 import org.dataconservancy.pass.model.Submission.Source;
 import org.dataconservancy.pass.model.SubmissionEvent;
 import org.dataconservancy.pass.model.SubmissionEvent.EventType;
 import org.dataconservancy.pass.model.SubmissionEvent.PerformerRole;
+import org.dataconservancy.pass.model.User;
+import org.dataconservancy.pass.model.support.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,11 +65,22 @@ public class DataMigration {
     private final static String PASS_ELASTICSEARCH_URL = "http://localhost:9200/pass/";
     private final static String PASS_FEDORA_USER = "fedoraAdmin";
     private final static String PASS_FEDORA_PASSWORD = "moo";
-    private final static String PASS_SEARCH_LIMIT = "5000";
-    
+    private final static String PASS_SEARCH_LIMIT = "50000";
+
+    private static final String DOMAIN = "johnshopkins.edu";
+    private static final String EMPLOYEE_ID_TYPE = "employeeid";
+    private static final String HOPKINS_ID_TYPE = "hopkinsid";
+    private static final String JHED_ID_TYPE = "jhed";
+    private static final String GRANT_ID_TYPE = "grant";
+    private static final String FUNDER_ID_TYPE = "funder";
+
     private static int successfulSubmissions = 0;
     private static int unsuccessfulSubmissions = 0;
     private static int createdSubmissionEvents = 0;
+
+    private static int successfulObjects = 0;
+    private static int unsuccessfulObjects = 0;
+    private static int skippedObjects = 0;
 
     private static final PassClient client = PassClientFactory.getPassClient(true);
     private static final org.dataconservancy.pass.v2_3.client.PassClient oldClient =
@@ -102,6 +119,9 @@ public class DataMigration {
             
             migrateSubmissionModel();
             migrateRepository();
+            migrateUsers();
+            migrateGrants();
+            migrateFunders();
                         
         } catch (Exception ex)  {
             System.err.println("Update failed: " + ex.getMessage());
@@ -118,6 +138,48 @@ public class DataMigration {
         LOG.info("Submission Events created: {}", createdSubmissionEvents);
         LOG.info("********************************************************");
     }
+    private static void migrateUsers() {
+        successfulSubmissions = 0;
+        unsuccessfulSubmissions = 0;
+        skippedObjects = 0;
+        int recordsProcessed =  client.processAllEntities(uri -> migrateUser(uri), User.class);
+
+        LOG.info("********************************************************");
+        LOG.info("Users crawled: {}", recordsProcessed);
+        LOG.info("Users successfully updated: {}", successfulObjects);
+        LOG.info("Users with failed update: {}", unsuccessfulObjects);
+        LOG.info("Users skipped: {}", skippedObjects);
+        LOG.info("********************************************************");
+    }
+
+    private static void migrateGrants() {
+        successfulObjects = 0;
+        unsuccessfulObjects = 0;
+        skippedObjects = 0;
+        int recordsProcessed = client.processAllEntities(uri -> migrateGrant(uri), Grant.class);
+
+        LOG.info("********************************************************");
+        LOG.info("Grants crawled: {}", recordsProcessed);
+        LOG.info("Grants successfully updated: {}", successfulObjects);
+        LOG.info("Grants with failed update: {}", unsuccessfulObjects);
+        LOG.info("Grants skipped: {}", skippedObjects);
+        LOG.info("********************************************************");
+    }
+
+    private static void migrateFunders() {
+        successfulObjects = 0;
+        unsuccessfulObjects = 0;
+        skippedObjects = 0;
+        int recordsProcessed = client.processAllEntities(uri -> migrateFunder(uri), Funder.class);
+
+        LOG.info("********************************************************");
+        LOG.info("Funders crawled: {}", recordsProcessed);
+        LOG.info("Funders successfully updated: {}", successfulObjects);
+        LOG.info("Funders with failed update: {}", unsuccessfulObjects);
+        LOG.info("Funders skipped: {}", skippedObjects);
+        LOG.info("********************************************************");
+    }
+
 
     private static void migrateSubmission(URI uri) {
         
@@ -164,7 +226,84 @@ public class DataMigration {
         }
        
     }
+    private static void migrateUser(URI uri) {
+        try {
+            User newUser = client.readResource(uri, User.class);
+            org.dataconservancy.pass.v2_3.model.User origUser = oldClient.readResource(uri, org.dataconservancy.pass.v2_3.model.User.class);
+            boolean update = false;
+            List<String> ids = new ArrayList<>();
 
+            if (newUser.getLocatorIds().size() == 0) {
+                if (origUser.getLocalKey() != null) {
+                    ids.add(new Identifier(DOMAIN, EMPLOYEE_ID_TYPE, origUser.getLocalKey()).serialize());
+                }
+                if (origUser.getInstitutionalId() != null) {
+                    String instId = origUser.getInstitutionalId().toLowerCase();
+                    ids.add(new Identifier(DOMAIN, JHED_ID_TYPE, instId).serialize());
+                }
+                if (ids.size() > 0) {
+                    newUser.setLocatorIds(ids);
+                    update = true;
+                }
+            }
+
+            if (newUser.getEmail() == null) {
+                if (origUser.getEmail() != null) {
+                    newUser.setEmail(origUser.getEmail());
+                    update = true;
+                }
+            }
+
+            if (newUser.getDisplayName() == null) {
+                if (origUser.getFirstName() != null && origUser.getLastName() != null) {
+                    newUser.setDisplayName(String.join(" ", origUser.getFirstName(), origUser.getLastName()));
+                    update = true;
+                }
+            }
+
+            if (update) {
+                client.updateResource(newUser);
+                successfulObjects++;
+            } else {
+                skippedObjects++;
+            }
+        } catch (Exception ex) {
+            LOG.error("Could not update User {}. Error message: {}", uri, ex.getMessage());
+            unsuccessfulObjects++;
+        }
+    }
+
+    private static void migrateGrant(URI uri) {
+        try {
+            Grant grant = client.readResource(uri, Grant.class);
+            if (!grant.getLocalKey().startsWith(DOMAIN)) {
+                grant.setLocalKey(new Identifier(DOMAIN, GRANT_ID_TYPE, grant.getLocalKey()).serialize());
+                client.updateResource(grant);
+                successfulObjects++;
+            } else {
+                skippedObjects++;
+            }
+        } catch (Exception ex) {
+            LOG.error("Could not update Grant {}. Error message: {}", uri, ex.getMessage());
+            unsuccessfulObjects++;
+        }
+    }
+
+    private static void migrateFunder(URI uri) {
+        try {
+            Funder funder = client.readResource(uri, Funder.class);
+            if (!funder.getLocalKey().startsWith(DOMAIN)) {
+                funder.setLocalKey(new Identifier(DOMAIN, FUNDER_ID_TYPE, funder.getLocalKey()).serialize());
+                client.updateResource(funder);
+                successfulObjects++;
+            } else {
+                skippedObjects++;
+            }
+        } catch (Exception ex) {
+            LOG.error("Could not update Funder {}. Error message: {}", uri, ex.getMessage());
+            unsuccessfulObjects++;
+        }
+    }
 
     private static void migrateRepository() {
         URI jscholarshipRepoUri;
@@ -236,8 +375,6 @@ public class DataMigration {
         System.out.println("Deleted resource with URI " + id.toString());
     };
     
-    
-
     // This causes us to do another fetch of the resource content, but oh well
     private static void dump(java.io.File dir, URI uri) {
         final String path = uri.getPath();
